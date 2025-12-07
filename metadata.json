@@ -1,0 +1,5 @@
+{
+  "name": "錢管家 (MoneyKeeper)",
+  "description": "智能存款帳戶管理系統，支援自動化匯入扣款與假日排除功能。",
+  "requestFramePermissions": []
+}
