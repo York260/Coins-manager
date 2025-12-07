@@ -99,7 +99,9 @@ const App: React.FC = () => {
     accountId: '',
     type: TransactionType.DEPOSIT,
     amount: '',
+    frequency: 'daily' as 'daily' | 'weekly',
     excludeWeekends: true,
+    weekdays: [] as number[],
     description: ''
   });
 
@@ -119,12 +121,12 @@ const App: React.FC = () => {
   const processAutomations = useCallback((currentState: AppState): AppState => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     let newState = { ...currentState };
     let hasChanges = false;
 
     const newTransactions: Transaction[] = [];
-    
+
     // We iterate through rules to see if they need to run
     const updatedRules = newState.automationRules.map(rule => {
       if (!rule.active) return rule;
@@ -144,13 +146,21 @@ const App: React.FC = () => {
       // Iterate day by day from last run + 1 day up to today
       for (let i = 0; i < diffDays; i++) {
         processedDate.setDate(processedDate.getDate() + 1);
-        
-        // Check exclusion
-        const dayOfWeek = processedDate.getDay(); // 0 = Sun, 6 = Sat
-        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
-        if (rule.excludeWeekends && isWeekend) {
-          continue; // Skip weekend
+        const dayOfWeek = processedDate.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+
+        // Handle different frequency types
+        if (rule.frequency === 'weekly') {
+          // Weekly: only execute on specified weekdays
+          if (!rule.weekdays || !rule.weekdays.includes(dayOfWeek)) {
+            continue; // Skip this day
+          }
+        } else {
+          // Daily: check weekend exclusion
+          const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+          if (rule.excludeWeekends && isWeekend) {
+            continue; // Skip weekend
+          }
         }
 
         // Apply transaction
@@ -177,7 +187,7 @@ const App: React.FC = () => {
           lastRunDate: today.toISOString().split('T')[0]
         };
       }
-      
+
       // Even if skipped due to weekends, we update lastRunDate so we don't check those days again
       return {
           ...rule,
@@ -302,12 +312,20 @@ const App: React.FC = () => {
         return;
     }
 
+    // Validate weekly frequency
+    if (ruleForm.frequency === 'weekly' && (!ruleForm.weekdays || ruleForm.weekdays.length === 0)) {
+        alert("請至少選擇一個星期");
+        return;
+    }
+
     const newRule: AutomationRule = {
       id: generateId(),
       accountId: ruleForm.accountId,
       type: ruleForm.type,
       amount: amount,
-      excludeWeekends: ruleForm.excludeWeekends,
+      frequency: ruleForm.frequency,
+      excludeWeekends: ruleForm.frequency === 'daily' ? ruleForm.excludeWeekends : undefined,
+      weekdays: ruleForm.frequency === 'weekly' ? ruleForm.weekdays : undefined,
       active: true,
       description: ruleForm.description,
       lastRunDate: new Date().toISOString().split('T')[0] // Starts from today
@@ -320,7 +338,12 @@ const App: React.FC = () => {
     setState(nextState);
     saveState(nextState);
     setShowAddRuleModal(false);
-    setRuleForm({ ...ruleForm, amount: '', description: '' });
+    setRuleForm({
+      ...ruleForm,
+      amount: '',
+      description: '',
+      weekdays: []
+    });
   };
 
   const toggleRule = (id: string) => {
@@ -655,12 +678,24 @@ const App: React.FC = () => {
                 </div>
                 
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-2xl font-bold text-slate-900">${rule.amount.toLocaleString()} <span className="text-sm font-normal text-slate-400">/ 日</span></span>
+                  <span className="text-2xl font-bold text-slate-900">
+                    ${rule.amount.toLocaleString()}{' '}
+                    <span className="text-sm font-normal text-slate-400">
+                      / {rule.frequency === 'weekly' ? '週' : '日'}
+                    </span>
+                  </span>
                 </div>
 
                 <div className="flex items-center justify-between text-sm text-slate-600 border-t border-slate-50 pt-3">
-                  <span className="flex items-center gap-2">
-                    {rule.excludeWeekends && <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded text-xs">排除假日</span>}
+                  <span className="flex items-center gap-2 flex-wrap">
+                    {rule.frequency === 'daily' && rule.excludeWeekends && (
+                      <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded text-xs">排除假日</span>
+                    )}
+                    {rule.frequency === 'weekly' && rule.weekdays && rule.weekdays.length > 0 && (
+                      <span className="bg-purple-50 text-purple-600 px-2 py-0.5 rounded text-xs">
+                        {rule.weekdays.map(d => ['日', '一', '二', '三', '四', '五', '六'][d]).join('、')}
+                      </span>
+                    )}
                     {!rule.active && <span className="bg-slate-100 text-slate-500 px-2 py-0.5 rounded text-xs">已暫停</span>}
                   </span>
                   
@@ -943,27 +978,49 @@ const App: React.FC = () => {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">類型</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">頻率</label>
                         <div className="flex bg-slate-100 p-1 rounded-xl">
-                            <button 
-                                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${ruleForm.type === TransactionType.DEPOSIT ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}
-                                onClick={() => setRuleForm({...ruleForm, type: TransactionType.DEPOSIT})}
+                            <button
+                                type="button"
+                                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${ruleForm.frequency === 'daily' ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}
+                                onClick={() => setRuleForm({...ruleForm, frequency: 'daily'})}
                             >
-                                每日匯入
+                                每日
                             </button>
-                            <button 
-                                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${ruleForm.type === TransactionType.WITHDRAW ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}
-                                onClick={() => setRuleForm({...ruleForm, type: TransactionType.WITHDRAW})}
+                            <button
+                                type="button"
+                                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${ruleForm.frequency === 'weekly' ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}
+                                onClick={() => setRuleForm({...ruleForm, frequency: 'weekly'})}
                             >
-                                每日扣款
+                                每週
                             </button>
                         </div>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">每日金額</label>
-                        <input 
-                            type="number" 
+                        <label className="block text-sm font-medium text-slate-700 mb-1">類型</label>
+                        <div className="flex bg-slate-100 p-1 rounded-xl">
+                            <button
+                                type="button"
+                                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${ruleForm.type === TransactionType.DEPOSIT ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}
+                                onClick={() => setRuleForm({...ruleForm, type: TransactionType.DEPOSIT})}
+                            >
+                                匯入
+                            </button>
+                            <button
+                                type="button"
+                                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${ruleForm.type === TransactionType.WITHDRAW ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}
+                                onClick={() => setRuleForm({...ruleForm, type: TransactionType.WITHDRAW})}
+                            >
+                                扣款
+                            </button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">金額</label>
+                        <input
+                            type="number"
                             className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 focus:ring-2 focus:ring-primary focus:outline-none"
                             placeholder="0"
                             value={ruleForm.amount}
@@ -971,26 +1028,55 @@ const App: React.FC = () => {
                         />
                     </div>
 
+                    {ruleForm.frequency === 'weekly' && (
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">選擇星期</label>
+                            <div className="grid grid-cols-7 gap-2">
+                                {['日', '一', '二', '三', '四', '五', '六'].map((day, idx) => (
+                                    <button
+                                        key={idx}
+                                        type="button"
+                                        className={`p-2 rounded-lg text-sm font-medium transition-all ${
+                                            ruleForm.weekdays.includes(idx)
+                                                ? 'bg-primary text-white'
+                                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                        }`}
+                                        onClick={() => {
+                                            const newWeekdays = ruleForm.weekdays.includes(idx)
+                                                ? ruleForm.weekdays.filter(d => d !== idx)
+                                                : [...ruleForm.weekdays, idx];
+                                            setRuleForm({...ruleForm, weekdays: newWeekdays});
+                                        }}
+                                    >
+                                        {day}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {ruleForm.frequency === 'daily' && (
+                        <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                            <input
+                                type="checkbox"
+                                id="weekend"
+                                className="w-5 h-5 text-primary rounded focus:ring-primary"
+                                checked={ruleForm.excludeWeekends}
+                                onChange={e => setRuleForm({...ruleForm, excludeWeekends: e.target.checked})}
+                            />
+                            <label htmlFor="weekend" className="text-sm text-slate-700">排除週六、週日</label>
+                        </div>
+                    )}
+
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">規則名稱 (備註)</label>
-                        <input 
-                            type="text" 
+                        <input
+                            type="text"
                             className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 focus:ring-2 focus:ring-primary focus:outline-none"
-                            placeholder="例如: 每日午餐費"
+                            placeholder="例如: 每週五午餐費"
                             value={ruleForm.description}
                             onChange={e => setRuleForm({...ruleForm, description: e.target.value})}
                         />
-                    </div>
-
-                    <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                        <input 
-                            type="checkbox" 
-                            id="weekend" 
-                            className="w-5 h-5 text-primary rounded focus:ring-primary"
-                            checked={ruleForm.excludeWeekends}
-                            onChange={e => setRuleForm({...ruleForm, excludeWeekends: e.target.checked})}
-                        />
-                        <label htmlFor="weekend" className="text-sm text-slate-700">排除週六、週日</label>
                     </div>
                 </div>
 

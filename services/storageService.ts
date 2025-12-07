@@ -13,13 +13,33 @@ export const loadState = (): AppState => {
   try {
     const serialized = localStorage.getItem(STORAGE_KEY);
     if (!serialized) return defaultState;
-    
+
     const parsed = JSON.parse(serialized);
-    // Migration for existing data that might not have themeMode
-    if (!parsed.themeMode) {
-      return { ...parsed, themeMode: 'normal' };
+
+    // Migration for existing data
+    let migratedState = { ...parsed };
+
+    // Add themeMode if missing
+    if (!migratedState.themeMode) {
+      migratedState.themeMode = 'normal';
     }
-    return parsed;
+
+    // Migrate automation rules to include frequency
+    if (migratedState.automationRules) {
+      migratedState.automationRules = migratedState.automationRules.map((rule: any) => {
+        if (!rule.frequency) {
+          // Old rules default to daily frequency
+          return {
+            ...rule,
+            frequency: 'daily',
+            excludeWeekends: rule.excludeWeekends !== undefined ? rule.excludeWeekends : true
+          };
+        }
+        return rule;
+      });
+    }
+
+    return migratedState;
   } catch (e) {
     console.error("Failed to load state", e);
     return defaultState;

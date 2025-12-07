@@ -20,12 +20,16 @@ export interface Account {
   color: string;
 }
 
+export type FrequencyType = 'daily' | 'weekly';
+
 export interface AutomationRule {
   id: string;
   accountId: string;
   type: TransactionType;
   amount: number;
-  excludeWeekends: boolean;
+  frequency: FrequencyType; // 'daily' or 'weekly'
+  excludeWeekends?: boolean; // For daily frequency only
+  weekdays?: number[]; // For weekly frequency: 0=Sunday, 1=Monday, ..., 6=Saturday
   lastRunDate: string; // ISO String of the last successful run (YYYY-MM-DD)
   active: boolean;
   description: string;
