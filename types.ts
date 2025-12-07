@@ -40,4 +40,4 @@ export interface AppState {
   themeMode: ThemeMode;
 }
 
-export type ViewState = 'ACCOUNTS' | 'ACCOUNT_DETAIL' | 'AUTOMATION' | 'AI_ANALYSIS';
+export type ViewState = 'ACCOUNTS' | 'ACCOUNT_DETAIL' | 'AUTOMATION' | 'AI_ANALYSIS' | 'SETTINGS';

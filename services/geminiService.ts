@@ -1,21 +1,24 @@
 import { GoogleGenAI } from "@google/genai";
 import { Account, Transaction, AutomationRule } from '../types';
 
-// NOTE: In a real production app, we would not instantiate this until we need it,
-// and we definitely wouldn't want to expose keys if this wasn't a client-side demo.
-// The user prompt instructions dictate using process.env.API_KEY.
+// Get API key from localStorage
+const getApiKey = (): string | null => {
+  return localStorage.getItem('gemini_api_key');
+};
 
 export const analyzeFinances = async (
   accounts: Account[],
   transactions: Transaction[],
   rules: AutomationRule[]
 ): Promise<string> => {
-  if (!process.env.API_KEY) {
-    return "請先設定 API Key 才能使用 AI 分析功能。";
+  const apiKey = getApiKey();
+
+  if (!apiKey) {
+    return "請先在設定中輸入您的 Gemini API Key 才能使用 AI 分析功能。";
   }
 
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey });
     
     // Prepare data for the prompt
     const accountSummary = accounts.map(a => `${a.name}: $${a.balance}`).join(', ');

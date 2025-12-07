@@ -1,34 +1,35 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  AppState, 
-  ViewState, 
-  Account, 
-  Transaction, 
-  TransactionType, 
-  AutomationRule 
+import {
+  AppState,
+  ViewState,
+  Account,
+  Transaction,
+  TransactionType,
+  AutomationRule
 } from './types';
 import { loadState, saveState, generateId } from './services/storageService';
 import { analyzeFinances } from './services/geminiService';
 import { Button } from './components/Button';
 import { AccountCard } from './components/AccountCard';
 import { TransactionItem } from './components/TransactionItem';
-import { 
-  Plus, 
-  LayoutDashboard, 
-  Workflow, 
-  Sparkles, 
-  ArrowLeft, 
-  Trash2, 
-  PlusCircle, 
-  MinusCircle, 
-  Save, 
+import {
+  Plus,
+  LayoutDashboard,
+  Workflow,
+  Sparkles,
+  ArrowLeft,
+  Trash2,
+  PlusCircle,
+  MinusCircle,
+  Save,
   X,
   Cpu,
   Activity,
   Zap,
   Palette,
   Moon,
-  Sun
+  Sun,
+  Settings
 } from 'lucide-react';
 
 const COLORS = ['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-orange-500', 'bg-pink-500'];
@@ -90,21 +91,25 @@ const App: React.FC = () => {
   const [showAddAccountModal, setShowAddAccountModal] = useState(false);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [showAddRuleModal, setShowAddRuleModal] = useState(false);
-  
+
   // Forms state
   const [newAccountName, setNewAccountName] = useState('');
   const [transactionForm, setTransactionForm] = useState({ type: TransactionType.DEPOSIT, amount: '', note: '' });
-  const [ruleForm, setRuleForm] = useState({ 
-    accountId: '', 
-    type: TransactionType.DEPOSIT, 
-    amount: '', 
-    excludeWeekends: true, 
-    description: '' 
+  const [ruleForm, setRuleForm] = useState({
+    accountId: '',
+    type: TransactionType.DEPOSIT,
+    amount: '',
+    excludeWeekends: true,
+    description: ''
   });
-  
+
   // AI State
   const [aiAnalysis, setAiAnalysis] = useState<string>('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  // Settings State
+  const [apiKey, setApiKey] = useState<string>(localStorage.getItem('gemini_api_key') || '');
+  const [tempApiKey, setTempApiKey] = useState<string>('');
 
   // --- Helpers ---
   const getAccount = (id: string) => state.accounts.find(a => a.id === id);
@@ -348,6 +353,24 @@ const App: React.FC = () => {
     const result = await analyzeFinances(state.accounts, state.transactions, state.automationRules);
     setAiAnalysis(result);
     setIsAnalyzing(false);
+  };
+
+  const saveApiKey = () => {
+    if (tempApiKey.trim()) {
+      localStorage.setItem('gemini_api_key', tempApiKey.trim());
+      setApiKey(tempApiKey.trim());
+      setTempApiKey('');
+      alert('API Key 已儲存！');
+    }
+  };
+
+  const clearApiKey = () => {
+    if (window.confirm('確定要清除 API Key 嗎？')) {
+      localStorage.removeItem('gemini_api_key');
+      setApiKey('');
+      setTempApiKey('');
+      alert('API Key 已清除！');
+    }
   };
 
   // --- Views ---
@@ -671,30 +694,119 @@ const App: React.FC = () => {
         <p className="text-slate-500">由 Google Gemini 提供支援</p>
       </header>
 
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-6">
-        <p className="text-slate-600 mb-6 leading-relaxed">
-            AI 財務顧問可以根據您的交易紀錄與自動化設定，分析資金流動狀況並提供理財建議。
-        </p>
-        <Button 
-            onClick={triggerAIAnalysis} 
-            disabled={isAnalyzing} 
-            fullWidth 
-            className="bg-purple-600 hover:bg-purple-700 focus:ring-purple-500"
-        >
-            {isAnalyzing ? '分析中...' : '開始分析'}
-        </Button>
-      </div>
-
-      {aiAnalysis && (
-        <div className="bg-purple-50 p-6 rounded-2xl border border-purple-100 animate-fade-in">
-            <h3 className="font-bold text-purple-900 mb-3 flex items-center gap-2">
-                <Sparkles className="w-4 h-4" /> 分析報告
-            </h3>
-            <div className="text-slate-700 text-sm leading-7 whitespace-pre-wrap">
-                {aiAnalysis}
-            </div>
+      {!apiKey ? (
+        <div className="bg-yellow-50 p-6 rounded-2xl shadow-sm border border-yellow-200 mb-6">
+          <p className="text-yellow-800 mb-4">
+            您尚未設定 Gemini API Key。請前往設定頁面輸入您的 API Key。
+          </p>
+          <Button onClick={() => setView('SETTINGS')} variant="secondary" fullWidth>
+            前往設定
+          </Button>
         </div>
+      ) : (
+        <>
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-6">
+            <p className="text-slate-600 mb-6 leading-relaxed">
+                AI 財務顧問可以根據您的交易紀錄與自動化設定，分析資金流動狀況並提供理財建議。
+            </p>
+            <Button
+                onClick={triggerAIAnalysis}
+                disabled={isAnalyzing}
+                fullWidth
+                className="bg-purple-600 hover:bg-purple-700 focus:ring-purple-500"
+            >
+                {isAnalyzing ? '分析中...' : '開始分析'}
+            </Button>
+          </div>
+
+          {aiAnalysis && (
+            <div className="bg-purple-50 p-6 rounded-2xl border border-purple-100 animate-fade-in">
+                <h3 className="font-bold text-purple-900 mb-3 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4" /> 分析報告
+                </h3>
+                <div className="text-slate-700 text-sm leading-7 whitespace-pre-wrap">
+                    {aiAnalysis}
+                </div>
+            </div>
+          )}
+        </>
       )}
+    </div>
+  );
+
+  const renderSettingsView = () => (
+    <div className="pb-24">
+      <header className="mb-6">
+        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+          <Settings className="w-6 h-6 text-slate-700" />
+          設定
+        </h1>
+        <p className="text-slate-500">管理您的 API 金鑰</p>
+      </header>
+
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+        <h3 className="font-bold text-slate-800 mb-2">Gemini API Key</h3>
+        <p className="text-sm text-slate-500 mb-4">
+          用於 AI 智慧分析功能。您可以在{' '}
+          <a
+            href="https://aistudio.google.com/app/apikey"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:underline"
+          >
+            Google AI Studio
+          </a>
+          {' '}取得免費的 API Key。
+        </p>
+
+        {apiKey ? (
+          <div className="mb-4 p-4 bg-green-50 rounded-xl border border-green-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-green-800 font-medium mb-1">API Key 已設定</p>
+                <p className="text-xs text-green-600 font-mono">
+                  {apiKey.substring(0, 8)}...{apiKey.substring(apiKey.length - 4)}
+                </p>
+              </div>
+              <Button variant="danger" size="sm" onClick={clearApiKey}>
+                清除
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="mb-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+            <p className="text-sm text-slate-600">尚未設定 API Key</p>
+          </div>
+        )}
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              {apiKey ? '更新 API Key' : '輸入 API Key'}
+            </label>
+            <input
+              type="password"
+              className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 focus:ring-2 focus:ring-primary focus:outline-none font-mono text-sm"
+              placeholder="輸入您的 Gemini API Key"
+              value={tempApiKey}
+              onChange={(e) => setTempApiKey(e.target.value)}
+            />
+          </div>
+          <Button fullWidth onClick={saveApiKey} disabled={!tempApiKey.trim()}>
+            <Save className="w-4 h-4 mr-2" /> 儲存 API Key
+          </Button>
+        </div>
+
+        <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
+          <h4 className="text-sm font-bold text-blue-900 mb-2">如何取得 API Key？</h4>
+          <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+            <li>前往 <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="underline">Google AI Studio</a></li>
+            <li>登入您的 Google 帳號</li>
+            <li>點擊「Create API Key」</li>
+            <li>複製 API Key 並貼上到上方欄位</li>
+          </ol>
+        </div>
+      </div>
     </div>
   );
 
@@ -715,31 +827,39 @@ const App: React.FC = () => {
           {view === 'ACCOUNT_DETAIL' && renderAccountDetailView()}
           {view === 'AUTOMATION' && renderAutomationView()}
           {view === 'AI_ANALYSIS' && renderAIView()}
+          {view === 'SETTINGS' && renderSettingsView()}
         </main>
 
         {/* Bottom Navigation - Only show if NOT in detail view */}
         {view !== 'ACCOUNT_DETAIL' && (
-            <nav className="fixed bottom-0 w-full max-w-md bg-white border-t border-slate-200 px-6 py-3 flex justify-between items-center z-40">
-                <button 
+            <nav className="fixed bottom-0 w-full max-w-md bg-white border-t border-slate-200 px-4 py-3 flex justify-between items-center z-40">
+                <button
                     onClick={() => setView('ACCOUNTS')}
                     className={`flex flex-col items-center gap-1 ${view === 'ACCOUNTS' ? 'text-primary' : 'text-slate-400'}`}
                 >
                     <LayoutDashboard className="w-6 h-6" />
                     <span className="text-[10px] font-medium">總覽</span>
                 </button>
-                <button 
+                <button
                     onClick={() => setView('AUTOMATION')}
                     className={`flex flex-col items-center gap-1 ${view === 'AUTOMATION' ? 'text-primary' : 'text-slate-400'}`}
                 >
                     <Workflow className="w-6 h-6" />
                     <span className="text-[10px] font-medium">自動化</span>
                 </button>
-                <button 
+                <button
                     onClick={() => setView('AI_ANALYSIS')}
                     className={`flex flex-col items-center gap-1 ${view === 'AI_ANALYSIS' ? 'text-purple-600' : 'text-slate-400'}`}
                 >
                     <Sparkles className="w-6 h-6" />
                     <span className="text-[10px] font-medium">智慧分析</span>
+                </button>
+                <button
+                    onClick={() => setView('SETTINGS')}
+                    className={`flex flex-col items-center gap-1 ${view === 'SETTINGS' ? 'text-primary' : 'text-slate-400'}`}
+                >
+                    <Settings className="w-6 h-6" />
+                    <span className="text-[10px] font-medium">設定</span>
                 </button>
             </nav>
         )}
