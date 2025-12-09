@@ -131,14 +131,19 @@ const App: React.FC = () => {
     const updatedRules = newState.automationRules.map(rule => {
       if (!rule.active) return rule;
 
+      // 直接比較日期字串，避免時間誤差
+      const todayStr = today.toISOString().split('T')[0];
+
+      if (rule.lastRunDate >= todayStr) {
+        return rule; // Already ran today or future date
+      }
+
       const lastRun = new Date(rule.lastRunDate);
       lastRun.setHours(0, 0, 0, 0);
 
-      // Calculate days difference
-      const diffTime = Math.abs(today.getTime() - lastRun.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-      if (diffDays <= 0) return rule; // Already ran today or future date
+      // Calculate days difference (使用 Math.floor 避免誤差)
+      const diffTime = today.getTime() - lastRun.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
       let processedDate = new Date(lastRun);
       let executedCount = 0;
@@ -328,7 +333,7 @@ const App: React.FC = () => {
       weekdays: ruleForm.frequency === 'weekly' ? ruleForm.weekdays : undefined,
       active: true,
       description: ruleForm.description,
-      lastRunDate: new Date().toISOString().split('T')[0] // Starts from today
+      lastRunDate: new Date().toISOString().split('T')[0] // 設為今天，明天開始執行
     };
 
     const nextState = {
