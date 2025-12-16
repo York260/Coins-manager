@@ -116,6 +116,21 @@ console.log('交易:', data.transactions.filter(t => t.isAuto))
 
 ## Bug 修復歷史
 
+### 2025-12-16 修復（時區問題）
+**問題**：同一天早上執行一次，晚上又重複執行一次
+**根本原因**：
+1. `toISOString().split('T')[0]` 返回 UTC 日期而非本地日期
+2. `new Date(dateString)` 將日期字串解析為 UTC 時間，導致時間偏移
+
+**修復**：
+1. 新增 `getLocalDateString()` 函數使用本地時間
+2. 手動解析日期為本地時間：`new Date(year, month-1, day, 0, 0, 0, 0)`
+3. 替換所有 4 處使用 UTC 時間的位置
+
+**影響範圍**：所有自動化規則
+
+---
+
 ### 2025-12-09 修復
 **問題**：使用 `Math.ceil` 導致重複執行
 **修復**：改用字串比較 + `Math.floor`
