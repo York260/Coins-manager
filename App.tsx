@@ -34,6 +34,14 @@ import {
 
 const COLORS = ['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-orange-500', 'bg-pink-500'];
 
+// Helper: Get local date string in YYYY-MM-DD format (fixes timezone issues)
+const getLocalDateString = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 // Cyberpunk Theme Mapping
 const CYBER_THEMES: Record<string, any> = {
   'bg-blue-500': {
@@ -131,15 +139,16 @@ const App: React.FC = () => {
     const updatedRules = newState.automationRules.map(rule => {
       if (!rule.active) return rule;
 
-      // 直接比較日期字串，避免時間誤差
-      const todayStr = today.toISOString().split('T')[0];
+      // 使用本地時間日期字串，避免時區誤差
+      const todayStr = getLocalDateString(today);
 
       if (rule.lastRunDate >= todayStr) {
         return rule; // Already ran today or future date
       }
 
-      const lastRun = new Date(rule.lastRunDate);
-      lastRun.setHours(0, 0, 0, 0);
+      // 使用本地時間解析日期，避免時區偏移
+      const [year, month, day] = rule.lastRunDate.split('-').map(Number);
+      const lastRun = new Date(year, month - 1, day, 0, 0, 0, 0);
 
       // Calculate days difference (使用 Math.floor 避免誤差)
       const diffTime = today.getTime() - lastRun.getTime();
@@ -189,14 +198,14 @@ const App: React.FC = () => {
         // Update last run to today so we don't process again
         return {
           ...rule,
-          lastRunDate: today.toISOString().split('T')[0]
+          lastRunDate: getLocalDateString(today)
         };
       }
 
       // Even if skipped due to weekends, we update lastRunDate so we don't check those days again
       return {
           ...rule,
-          lastRunDate: today.toISOString().split('T')[0]
+          lastRunDate: getLocalDateString(today)
       };
     });
 
@@ -333,7 +342,7 @@ const App: React.FC = () => {
       weekdays: ruleForm.frequency === 'weekly' ? ruleForm.weekdays : undefined,
       active: true,
       description: ruleForm.description,
-      lastRunDate: new Date().toISOString().split('T')[0] // 設為今天，明天開始執行
+      lastRunDate: getLocalDateString(new Date()) // 設為今天，明天開始執行
     };
 
     const nextState = {
